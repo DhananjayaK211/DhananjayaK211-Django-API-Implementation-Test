@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Auth System — Demo UI</title>
+
+  <!-- TailwindCSS (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* Simple toast styles */
+    #toast {
+      position: fixed;
+      right: 1rem;
+      top: 1rem;
+      z-index: 60;
+      min-width: 220px;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-6">
+  <div class="w-full max-w-3xl">
+    <div class="bg-white rounded-2xl shadow-xl overflow-hidden grid grid-cols-1 md:grid-cols-2">
+      <!-- Left: UI -->
+      <div class="p-8">
+        <h1 class="text-2xl font-bold text-slate-800 mb-1">AIEngineer — Auth Demo</h1>
+        <p class="text-sm text-slate-500 mb-6">Cookie-based auth + CSRF + OTP verification. Tested with Postman / Swagger.</p>
+
+        <!-- Tabs -->
+        <div class="mb-4">
+          <nav class="flex gap-2">
+            <button id="tabLogin" class="px-4 py-2 rounded-lg bg-blue-500 text-white font-semibold">Login</button>
+            <button id="tabRegister" class="px-4 py-2 rounded-lg bg-slate-100 text-slate-700">Register</button>
+            <button id="tabReset" class="px-4 py-2 rounded-lg bg-slate-100 text-slate-700">Reset Password</button>
+          </nav>
+        </div>
+
+        <!-- Forms container -->
+        <div class="space-y-4">
+          <!-- LOGIN FORM -->
+          <form id="loginForm" class="space-y-3">
+            <label class="text-xs text-slate-600">Email</label>
+            <input id="loginEmail" type="email" required class="w-full p-3 border rounded-lg" placeholder="you@example.com" />
+            <label class="text-xs text-slate-600">Password</label>
+            <input id="loginPassword" type="password" required class="w-full p-3 border rounded-lg" placeholder="••••••••" />
+            <div class="flex gap-2">
+              <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg font-semibold">Login</button>
+              <button id="loginDemo" type="button" class="px-4 py-3 bg-slate-100 rounded-lg">Demo</button>
+            </div>
+          </form>
+
+          <!-- REGISTER FORM -->
+          <form id="registerForm" class="hidden space-y-3">
+            <label class="text-xs text-slate-600">Email</label>
+            <input id="regEmail" type="email" required class="w-full p-3 border rounded-lg" placeholder="you@example.com" />
+            <label class="text-xs text-slate-600">Password (min 8 chars)</label>
+            <input id="regPassword" type="password" required minlength="8" class="w-full p-3 border rounded-lg" placeholder="StrongPass123" />
+            <div class="flex gap-2">
+              <button id="registerBtn" type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg font-semibold">Register</button>
+              <button id="regClear" type="button" class="px-4 py-3 bg-slate-100 rounded-lg">Clear</button>
+            </div>
+
+            <!-- After register: verify OTP -->
+            <div id="verifyBlock" class="mt-3 hidden border p-3 rounded-lg bg-slate-50">
+              <p class="text-sm text-slate-600">Enter the OTP sent to your email (console in dev).</p>
+              <input id="verifyEmail" type="email" class="w-full p-3 border rounded-lg mt-2" placeholder="same email used to register" />
+              <input id="verifyCode" type="text" class="w-full p-3 border rounded-lg mt-2" placeholder="123456" maxlength="6" />
+              <div class="flex gap-2 mt-2">
+                <button id="verifyBtn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 p-2 rounded-lg text-white">Verify OTP</button>
+                <button id="resendOtp" class="px-3 py-2 bg-slate-100 rounded-lg">Resend</button>
+              </div>
+            </div>
+          </form>
+
+          <!-- RESET PASSWORD FORM -->
+          <form id="resetForm" class="hidden space-y-3">
+            <label class="text-xs text-slate-600">Email</label>
+            <input id="resetEmail" type="email" required class="w-full p-3 border rounded-lg" placeholder="you@example.com" />
+            <div class="flex gap-2">
+              <button id="requestOtpBtn" type="submit" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white p-3 rounded-lg font-semibold">Request OTP</button>
+              <button id="resetClear" type="button" class="px-4 py-3 bg-slate-100 rounded-lg">Clear</button>
+            </div>
+
+            <!-- Confirm reset -->
+            <div id="confirmResetBlock" class="mt-3 hidden border p-3 rounded-lg bg-slate-50">
+              <input id="resetOtp" type="text" class="w-full p-3 border rounded-lg mt-2" placeholder="OTP code" maxlength="6" />
+              <input id="resetNewPassword" type="password" class="w-full p-3 border rounded-lg mt-2" placeholder="New password" />
+              <button id="confirmResetBtn" class="w-full mt-2 bg-yellow-600 hover:bg-yellow-700 p-2 rounded-lg text-white">Confirm Reset</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Profile panel -->
+        <div id="profilePanel" class="mt-6 p-4 border rounded-lg bg-slate-50 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <div id="profileName" class="font-semibold text-slate-800">—</div>
+              <div id="profileEmail" class="text-sm text-slate-600">—</div>
+            </div>
+            <div class="flex flex-col items-end">
+              <button id="getMeBtn" class="mb-2 px-4 py-2 bg-slate-100 rounded-lg">Refresh</button>
+              <button id="logoutBtn" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">Logout</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Illustration / quick help -->
+      <div class="hidden md:block bg-gradient-to-b from-slate-50 to-white p-8">
+        <h2 class="text-lg font-semibold text-slate-700 mb-2">Quick Tips</h2>
+        <ul class="text-sm text-slate-600 space-y-2">
+          <li>Open <span class="font-medium">/swagger/</span> to view docs & automatically set CSRF cookie.</li>
+          <li>OTP emails are printed to the console (dev).</li>
+          <li>Use Postman or this UI to test flows (cookies included).</li>
+        </ul>
+
+        <div class="mt-6">
+          <h3 class="text-sm font-semibold mb-2 text-slate-700">Status</h3>
+          <div id="statusBox" class="text-sm text-slate-600 bg-slate-100 p-3 rounded-lg">Ready</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast" aria-live="polite" class="hidden"></div>
+
+  <script>
+  (function () {
+    const apiBase = "/api/auth/";
+    const toastEl = document.getElementById("toast");
+    const statusBox = document.getElementById("statusBox");
+
+    function toast(message, type = "info") {
+      toastEl.classList.remove("hidden");
+      const id = "t-" + Date.now();
+      const color = type === "error" ? "bg-red-500" : type === "success" ? "bg-green-500" : "bg-slate-800";
+      const div = document.createElement("div");
+      div.id = id;
+      div.className = `${color} text-white px-4 py-2 rounded mb-2 shadow`;
+      div.textContent = message;
+      toastEl.appendChild(div);
+      setTimeout(() => {
+        div.remove();
+        if (!toastEl.children.length) toastEl.classList.add("hidden");
+      }, 4500);
+    }
+
+    // Silent logger for production UI (no UI dumps)
+    function log() {
+      // no-op in production UI.
+      // To debug locally: uncomment the next line to log to the browser console.
+      // console.log.apply(console, arguments);
+    }
+
+    // helper to get cookie
+    function getCookie(name) {
+      const m = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+      return m ? decodeURIComponent(m[2]) : null;
+    }
+
+    // ensure CSRF cookie exists by hitting swagger (server sets csrftoken on swagger view)
+    async function ensureCsrf() {
+      try {
+        await fetch('/swagger/', { credentials: 'include' });
+        log("Visited /swagger/ to ensure csrftoken cookie present");
+      } catch (e) {
+        log("Could not fetch /swagger/ to set CSRF (server may be down)", e);
+        statusBox.textContent = "Warning: unable to reach /swagger/ to set CSRF.";
+      }
+    }
+
+    // UI helpers: tabs
+    const tabLogin = document.getElementById("tabLogin");
+    const tabRegister = document.getElementById("tabRegister");
+    const tabReset = document.getElementById("tabReset");
+    const loginForm = document.getElementById("loginForm");
+    const registerForm = document.getElementById("registerForm");
+    const resetForm = document.getElementById("resetForm");
+    const profilePanel = document.getElementById("profilePanel");
+
+    function showTab(tab) {
+      [tabLogin, tabRegister, tabReset].forEach(t => {
+        t.classList.remove("bg-blue-500","text-white");
+        t.classList.add("bg-slate-100","text-slate-700");
+      });
+      if (tab === "login") {
+        loginForm.classList.remove("hidden");
+        registerForm.classList.add("hidden");
+        resetForm.classList.add("hidden");
+        tabLogin.classList.add("bg-blue-500","text-white");
+      } else if (tab === "register") {
+        loginForm.classList.add("hidden");
+        registerForm.classList.remove("hidden");
+        resetForm.classList.add("hidden");
+        tabRegister.classList.add("bg-blue-500","text-white");
+      } else {
+        loginForm.classList.add("hidden");
+        registerForm.classList.add("hidden");
+        resetForm.classList.remove("hidden");
+        tabReset.classList.add("bg-blue-500","text-white");
+      }
+    }
+    showTab("login");
+
+    tabLogin.addEventListener("click", () => showTab("login"));
+    tabRegister.addEventListener("click", () => showTab("register"));
+    tabReset.addEventListener("click", () => showTab("reset"));
+
+    // CSRF header helper
+    function csrfHeader() {
+      const csrf = getCookie('csrftoken');
+      return csrf ? { "X-CSRFToken": csrf } : {};
+    }
+
+    // --- Login ---
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("loginEmail").value.trim();
+      const password = document.getElementById("loginPassword").value;
+      if (!email || !password) { toast("Please fill email and password", "error"); return; }
+
+      try {
+        const res = await fetch(apiBase + "login/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...csrfHeader() },
+          body: JSON.stringify({ email, password }),
+          credentials: "include",
+        });
+        const data = await res.json();
+        log("login", res.status, data);
+        if (res.ok) {
+          toast("Login successful", "success");
+          await loadProfile();
+        } else {
+          toast(data.detail || (data.non_field_errors && data.non_field_errors.join(", ")) || "Login failed", "error");
+        }
+      } catch (err) {
+        log("login error", err);
+        toast("Network error (see console)", "error");
+      }
+    });
+
+    // demo login helper (fills fields)
+    document.getElementById("loginDemo").addEventListener("click", () => {
+      document.getElementById("loginEmail").value = "test@example.com";
+      document.getElementById("loginPassword").value = "password123";
+      toast("Demo filled — use valid registered credentials", "info");
+    });
+
+    // --- Register & OTP ---
+    const verifyBlock = document.getElementById("verifyBlock");
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("regEmail").value.trim();
+      const password = document.getElementById("regPassword").value;
+      if (!email || !password || password.length < 8) { toast("Check email and password (min 8)", "error"); return; }
+
+      try {
+        const res = await fetch(apiBase + "register/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...csrfHeader() },
+          body: JSON.stringify({ email, password }),
+          credentials: "include",
+        });
+        const data = await res.json();
+        log("register", res.status, data);
+        if (res.ok) {
+          toast("Registered — check console for OTP", "success");
+          verifyBlock.classList.remove("hidden");
+          document.getElementById("verifyEmail").value = email;
+        } else {
+          toast(Object.values(data).flat().join(", ") || "Register failed", "error");
+        }
+      } catch (err) {
+        log("register error", err);
+        toast("Network error (see console)", "error");
+      }
+    });
+
+    document.getElementById("resendOtp").addEventListener("click", async () => {
+      const email = document.getElementById("verifyEmail").value.trim();
+      if (!email) { toast("Enter email to resend OTP", "error"); return; }
+      try {
+        const res = await fetch(apiBase + "register/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...csrfHeader() },
+          body: JSON.stringify({ email, password: "temporaryPass123" }),
+          credentials: "include",
+        });
+        const data = await res.json();
+        log("resend otp", res.status, data);
+        toast("If account exists, OTP resent (console)", "info");
+      } catch (err) {
+        log("resend error", err);
+      }
+    });
+
+    document.getElementById("verifyBtn").addEventListener("click", async () => {
+      const email = document.getElementById("verifyEmail").value.trim();
+      const code = document.getElementById("verifyCode").value.trim();
+      if (!email || !code) { toast("Provide email and OTP", "error"); return; }
+      try {
+        const res = await fetch(apiBase + "register/verify/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...csrfHeader() },
+          body: JSON.stringify({ email, code }),
+          credentials: "include",
+        });
+        const data = await res.json();
+        log("verify", res.status, data);
+        if (res.ok) {
+          toast("Verification successful — you can now login", "success");
+          verifyBlock.classList.add("hidden");
+          showTab("login");
+        } else {
+          toast(data.detail || "Verify failed", "error");
+        }
+      } catch (err) {
+        log("verify error", err);
+        toast("Network error (see console)", "error");
+      }
+    });
+
+    // --- Password Reset ---
+    document.getElementById("resetForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("resetEmail").value.trim();
+      if (!email) { toast("Enter email", "error"); return; }
+      try {
+        const res = await fetch(apiBase + "password-reset/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...csrfHeader() },
+          body: JSON.stringify({ email }),
+          credentials: "include",
+        });
+        const data = await res.json();
+        log("password-reset", res.status, data);
+        if (res.ok) {
+          toast("OTP sent to email (console). Confirm below.", "info");
+          document.getElementById("confirmResetBlock").classList.remove("hidden");
+        } else {
+          toast(data.detail || "Request failed", "error");
+        }
+      } catch (err) {
+        log("password-reset error", err);
+        toast("Network error (see console)", "error");
+      }
+    });
+
+    document.getElementById("confirmResetBtn").addEventListener("click", async () => {
+      const email = document.getElementById("resetEmail").value.trim();
+      const code = document.getElementById("resetOtp").value.trim();
+      const password = document.getElementById("resetNewPassword").value;
+      if (!email || !code || !password) { toast("Provide all fields", "error"); return; }
+      try {
+        const res = await fetch(apiBase + "password-reset/confirm/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...csrfHeader() },
+          body: JSON.stringify({ email, code, password }),
+          credentials: "include",
+        });
+        const data = await res.json();
+        log("password-reset-confirm", res.status, data);
+        if (res.ok) {
+          toast("Password reset successful — login with new password", "success");
+          document.getElementById("confirmResetBlock").classList.add("hidden");
+          showTab("login");
+        } else {
+          toast(data.detail || "Reset failed", "error");
+        }
+      } catch (err) {
+        log("confirm reset error", err);
+        toast("Network error (see console)", "error");
+      }
+    });
+
+    // --- Profile & Logout ---
+    async function loadProfile() {
+      try {
+        const res = await fetch(apiBase + "me/", { credentials: "include" });
+        const data = await res.json();
+        log("me", res.status, data);
+        if (res.ok) {
+          profilePanel.classList.remove("hidden");
+          document.getElementById("profileName").textContent = data.username || (data.email || "User");
+          document.getElementById("profileEmail").textContent = data.email || "";
+          statusBox.textContent = "Authenticated";
+        } else {
+          profilePanel.classList.add("hidden");
+          statusBox.textContent = "Not authenticated";
+        }
+      } catch (err) {
+        log("profile error", err);
+        statusBox.textContent = "Error loading profile";
+      }
+    }
+    document.getElementById("getMeBtn").addEventListener("click", loadProfile);
+
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      try {
+        const res = await fetch(apiBase + "logout/", {
+          method: "POST",
+          headers: { ...csrfHeader() },
+          credentials: "include"
+        });
+        const data = await res.json();
+        log("logout", res.status, data);
+        if (res.ok) {
+          profilePanel.classList.add("hidden");
+          toast("Logged out successfully", "success");
+          statusBox.textContent = "Not authenticated";
+        } else {
+          toast("Logout failed", "error");
+        }
+      } catch (err) {
+        log("logout error", err);
+        toast("Network error (see console)", "error");
+      }
+    });
+
+    // small helpers to clear forms
+    document.getElementById("regClear").addEventListener("click", () => {
+      document.getElementById("regEmail").value = "";
+      document.getElementById("regPassword").value = "";
+      verifyBlock.classList.add("hidden");
+    });
+    document.getElementById("resetClear").addEventListener("click", () => {
+      document.getElementById("resetEmail").value = "";
+      document.getElementById("resetOtp").value = "";
+      document.getElementById("resetNewPassword").value = "";
+      document.getElementById("confirmResetBlock").classList.add("hidden");
+    });
+
+    // init: ensure csrf & load profile if logged in
+    (async function init() {
+      await ensureCsrf();
+      await loadProfile();
+    })();
+
+  })();
+  </script>
+</body>
+</html>

@@ -36,4 +36,4 @@ python manage.py migrate
 python manage.py createsuperuser
 
 # 6) Start server
-python manage.py runserver 0.0.0.0:8000
+\Users\dhanu\ai_auth_project\ai_auth> python manage.py runserver
